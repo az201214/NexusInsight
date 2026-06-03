@@ -1,0 +1,41 @@
+name: krmaazha_hub
+description: Krmaazha Team Hub - local team management for Android and desktop.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.4+4
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  intl: ^0.19.0
+  table_calendar: ^3.1.3
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+  google_fonts: ^6.2.1
+  crypto: ^3.0.6
+  uuid: ^4.5.1
+  file_picker: ^8.1.6
+  share_plus: ^10.1.3
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.2.2
+  collection: ^1.19.0
+  window_manager: ^0.4.3
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  network_info_plus: ^6.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
