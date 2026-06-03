@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "602232755080",
+    "project_id": "krmaazhahub",
+    "storage_bucket": "krmaazhahub.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602232755080:android:7811d3d98e0f4470baa03d",
+        "android_client_info": {
+          "package_name": "com.krmaazha.krmaazha_hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl22B-ZfXzh6bOcfxaJAnE2AFUiHjqfL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

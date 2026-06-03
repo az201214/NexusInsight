@@ -31,7 +31,9 @@ dependencies:
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   network_info_plus: ^6.0.2
-
+  firebase_core: ^3.0.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
