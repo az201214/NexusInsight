@@ -10,6 +10,7 @@ class Member {
     required this.isActive,
     required this.joinedAt,
     this.isCurrentUser = false,
+    this.email,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class Member {
   final bool isActive;
   final DateTime joinedAt;
   final bool isCurrentUser;
+  final String? email;
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -30,6 +32,7 @@ class Member {
         'is_active': isActive ? 1 : 0,
         'joined_at': joinedAt.millisecondsSinceEpoch,
         'is_current_user': isCurrentUser ? 1 : 0,
+        'email': email,
       };
 
   factory Member.fromMap(Map<String, dynamic> m) => Member(
@@ -41,6 +44,7 @@ class Member {
         isActive: (m['is_active'] as int) == 1,
         joinedAt: DateTime.fromMillisecondsSinceEpoch(m['joined_at'] as int),
         isCurrentUser: (m['is_current_user'] as int? ?? 0) == 1,
+        email: m['email'] as String?,
       );
 
   Member copyWith({
@@ -48,6 +52,7 @@ class Member {
     MemberRole? role,
     bool? isActive,
     bool? isCurrentUser,
+    String? email,
   }) =>
       Member(
         id: id,
@@ -58,5 +63,6 @@ class Member {
         isActive: isActive ?? this.isActive,
         joinedAt: joinedAt,
         isCurrentUser: isCurrentUser ?? this.isCurrentUser,
+        email: email ?? this.email,
       );
 }

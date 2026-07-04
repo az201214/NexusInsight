@@ -22,6 +22,10 @@ class LanSyncService {
   String? get pairingCode => _pairingCode;
   int get port => _port;
 
+  void regenerateCode() {
+    _pairingCode = _generateCode();
+  }
+
   Future<String?> startHost() async {
     if (_server != null) return _pairingCode;
     _pairingCode = _generateCode();

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -11,17 +12,40 @@ class AppDatabase {
   Database? _db;
 
   Future<Database> get database async {
+    if (kIsWeb) {
+      return MockDatabase();
+    }
     _db ??= await _open();
     return _db!;
   }
 
   Future<Database> _open() async {
+    if (kIsWeb) {
+      return MockDatabase();
+    }
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, AppConstants.dbName);
     return openDatabase(
       path,
       version: AppConstants.dbVersion,
       onCreate: _onCreate,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        final tables = [
+          'meeting_attendees',
+          'meetings',
+          'task_comments',
+          'task_checklist',
+          'tasks',
+          'activity_logs',
+          'members',
+          'app_settings',
+          'teams',
+        ];
+        for (final t in tables) {
+          await db.execute('DROP TABLE IF EXISTS $t');
+        }
+        await _onCreate(db, newVersion);
+      },
     );
   }
 
@@ -44,6 +68,7 @@ class AppDatabase {
         is_active INTEGER NOT NULL DEFAULT 1,
         joined_at INTEGER NOT NULL,
         is_current_user INTEGER NOT NULL DEFAULT 0,
+        email TEXT,
         FOREIGN KEY (team_id) REFERENCES teams(id)
       )
     ''');
@@ -208,3 +233,81 @@ class AppDatabase {
     };
   }
 }
+
+class MockDatabase implements Database {
+  @override
+  Future<List<Map<String, Object?>>> query(
+    String table, {
+    bool? distinct,
+    List<String>? columns,
+    String? where,
+    List<Object?>? whereArgs,
+    String? groupBy,
+    String? having,
+    String? orderBy,
+    int? limit,
+    int? offset,
+  }) async {
+    if (table == 'teams') {
+      return [
+        {
+          'id': 'web-team-id',
+          'name': 'Web Client Team',
+          'created_at': 1719878400000,
+          'theme_mode': 'dark',
+        }
+      ];
+    } else if (table == 'members') {
+      return [
+        {
+          'id': 'web-client-id',
+          'team_id': 'web-team-id',
+          'name': 'Web Admin',
+          'role': 'head',
+          'avatar_color': 4283215696, // 0xFF4CAF50
+          'is_active': 1,
+          'joined_at': 1719878400000,
+          'is_current_user': 1,
+        }
+      ];
+    } else if (table == 'app_settings') {
+      return [
+        {
+          'team_id': 'web-team-id',
+          'pin_hash': null,
+          'lock_enabled': 0,
+          'notifications_enabled': 1,
+          'self_assign_only': 0,
+          'onboarding_done': 1,
+          'meeting_reminder_minutes': 15,
+        }
+      ];
+    }
+    return [];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #close) {
+      return Future<void>.value();
+    }
+    if (invocation.memberName == #execute) {
+      return Future<void>.value();
+    }
+    if (invocation.memberName == #insert) {
+      return Future<int>.value(1);
+    }
+    if (invocation.memberName == #update) {
+      return Future<int>.value(1);
+    }
+    if (invocation.memberName == #delete) {
+      return Future<int>.value(0);
+    }
+    if (invocation.memberName == #transaction) {
+      final dynamic callback = invocation.positionalArguments.first;
+      return callback(this);
+    }
+    return null;
+  }
+}
+

@@ -40,7 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => context.go('/setup'),
+                onPressed: () => context.go('/signup'),
                 child: const Text('Skip'),
               ),
             ),
@@ -97,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       curve: Curves.easeOut,
                     );
                   } else {
-                    context.go('/setup');
+                    context.go('/signup');
                   }
                 },
                 style: FilledButton.styleFrom(

@@ -126,6 +126,7 @@ class TeamRepository {
     required String name,
     required MemberRole role,
     required String actorId,
+    String? email,
   }) async {
     final db = await _db.database;
     final id = _uuid.v4();
@@ -142,6 +143,7 @@ class TeamRepository {
       'is_active': 1,
       'joined_at': now.millisecondsSinceEpoch,
       'is_current_user': 0,
+      'email': email,
     });
     await logActivity(
       teamId: teamId,

@@ -6,10 +6,19 @@ import '../../data/repositories/backup_repository.dart';
 import '../../data/repositories/meeting_repository.dart';
 import '../../data/repositories/task_repository.dart';
 import '../../data/models/member.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../lan/lan_sync_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase.instance);
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return AuthRepository(ref.watch(databaseProvider));
+});
+
+final currentUserProvider = FutureProvider<SessionUser?>((ref) async {
+  return ref.watch(authRepositoryProvider).getCurrentUser();
+});
 
 final teamRepositoryProvider = Provider<TeamRepository>((ref) {
   return TeamRepository(ref.watch(databaseProvider));
@@ -93,6 +102,7 @@ final refreshTriggerProvider = StateProvider<int>((ref) => 0);
 
 void refreshAll(WidgetRef ref) {
   ref.read(refreshTriggerProvider.notifier).state++;
+  ref.invalidate(currentUserProvider);
   ref.invalidate(hasTeamProvider);
   ref.invalidate(teamProvider);
   ref.invalidate(currentMemberProvider);

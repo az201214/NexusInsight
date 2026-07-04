@@ -135,6 +135,13 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const Divider(),
               ListTile(
+                leading: const Icon(Icons.developer_mode_rounded, color: Colors.purpleAccent),
+                title: const Text('Portal Perspective Simulator'),
+                subtitle: const Text('Switch simulated viewpoints for testing'),
+                onTap: () => _showPerspectiveSimulator(context, ref, team.id),
+              ),
+              const Divider(),
+              ListTile(
                 leading: const Icon(Icons.info_outline_rounded),
                 title: const Text('About'),
                 subtitle: Text(AppConstants.appName),
@@ -221,5 +228,110 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
+  }
+
+  Future<void> _showPerspectiveSimulator(BuildContext context, WidgetRef ref, String teamId) async {
+    final teamRepo = ref.read(teamRepositoryProvider);
+    final db = await ref.read(databaseProvider).database;
+
+    if (context.mounted) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Simulate Portal Perspective',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Select a role perspective below to inspect the respective dashboards and permission restrictions.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              _perspectiveTile(context, ref, db, teamRepo, teamId, MemberRole.head, 'Admin Head', Icons.admin_panel_settings_rounded),
+              _perspectiveTile(context, ref, db, teamRepo, teamId, MemberRole.member, 'Employee/Member', Icons.person_rounded),
+              _perspectiveTile(context, ref, db, teamRepo, teamId, MemberRole.client, 'B2B Client Partner', Icons.business_rounded),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _perspectiveTile(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic db,
+    dynamic teamRepo,
+    String teamId,
+    MemberRole role,
+    String label,
+    IconData icon,
+  ) {
+    return ListTile(
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      title: Text(label),
+      onTap: () async {
+        final members = await teamRepo.getAllMembers(teamId);
+        dynamic target;
+        for (final m in members) {
+          if (m.role == role) {
+            target = m;
+            break;
+          }
+        }
+
+        if (target == null) {
+          final id = UniqueKey().toString();
+          final now = DateTime.now();
+          String name = switch (role) {
+            MemberRole.head => 'Web Admin',
+            MemberRole.coLead => 'Demo Co-Lead',
+            MemberRole.client => 'Demo Client',
+            MemberRole.member => 'Demo Member',
+          };
+          await db.insert('members', {
+            'id': id,
+            'team_id': teamId,
+            'name': name,
+            'role': role.dbValue,
+            'avatar_color': 0xFF2C3E7A,
+            'is_active': 1,
+            'joined_at': now.millisecondsSinceEpoch,
+            'is_current_user': 0,
+          });
+          
+          final updatedMembers = await teamRepo.getAllMembers(teamId);
+          for (final m in updatedMembers) {
+            if (m.role == role) {
+              target = m;
+              break;
+            }
+          }
+        }
+
+        if (target != null) {
+          await teamRepo.setCurrentUser(target.id, teamId);
+        }
+
+        refreshAll(ref);
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Switched view to $label')),
+          );
+        }
+      },
+    );
   }
 }

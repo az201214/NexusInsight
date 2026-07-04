@@ -2,12 +2,12 @@ class AppConstants {
   static const appName = 'Krmaazha Team Hub';
   static const backupExtension = 'krmaazha';
   static const dbName = 'krmaazha_hub.db';
-  static const dbVersion = 1;
+  static const dbVersion = 2;
   static const desktopBreakpoint = 600.0;
   static const defaultMeetingReminderMinutes = 15;
 }
 
-enum MemberRole { head, coLead, member }
+enum MemberRole { head, coLead, member, client }
 
 enum TaskStatus { todo, inProgress, done }
 
@@ -34,13 +34,19 @@ extension MemberRoleX on MemberRole {
         MemberRole.head => 'Team Head',
         MemberRole.coLead => 'Co-lead',
         MemberRole.member => 'Member',
+        MemberRole.client => 'Client Partner',
       };
 
-  String get dbValue => name == 'coLead' ? 'co_lead' : name;
+  String get dbValue => switch (this) {
+        MemberRole.coLead => 'co_lead',
+        MemberRole.client => 'client',
+        _ => name,
+      };
 
   static MemberRole fromDb(String v) => switch (v) {
         'head' => MemberRole.head,
         'co_lead' => MemberRole.coLead,
+        'client' => MemberRole.client,
         _ => MemberRole.member,
       };
 }

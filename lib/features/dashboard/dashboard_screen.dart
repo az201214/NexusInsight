@@ -7,6 +7,7 @@ import '../../core/constants.dart';
 import '../../core/providers/app_providers.dart';
 import '../../data/models/member.dart';
 import '../../data/models/task_item.dart';
+import '../clients/client_dashboard_screen.dart';
 import '../shared/widgets/empty_state.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -14,8 +15,13 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final teamAsync = ref.watch(teamProvider);
     final memberAsync = ref.watch(currentMemberProvider);
+    final member = memberAsync.valueOrNull;
+    if (member?.role == MemberRole.client) {
+      return const ClientDashboardScreen();
+    }
+
+    final teamAsync = ref.watch(teamProvider);
 
     return teamAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -64,6 +70,53 @@ class DashboardScreen extends ConsumerWidget {
                         meetingsToday: data.meetingsToday.length,
                         members: data.memberCount,
                       ),
+                      if (data.currentMember?.role == MemberRole.head || data.currentMember?.role == MemberRole.coLead) ...[
+                        const SizedBox(height: 20),
+                        _SectionTitle('Workspace Management'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Card(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _showAddMemberModal(context, ref, data.currentMember, team.id),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.person_add_rounded),
+                                        SizedBox(width: 8),
+                                        Text('Add Member', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Card(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => _showAddClientModal(context, ref, data.currentMember, team.id),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.business_rounded),
+                                        SizedBox(width: 8),
+                                        Text('Add B2B Client', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       _SectionTitle('Next meeting'),
                       if (data.nextMeeting == null)
@@ -167,6 +220,188 @@ class DashboardScreen extends ConsumerWidget {
       memberCount: members.length,
       myTasks: myTasks,
       recentActivity: activity,
+    );
+  }
+
+  void _showAddMemberModal(BuildContext context, WidgetRef ref, Member? currentMember, String teamId) {
+    final nameCtrl = TextEditingController();
+    MemberRole role = MemberRole.member;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Team Member'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                hintText: 'e.g. John Doe',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<MemberRole>(
+              value: role,
+              decoration: const InputDecoration(labelText: 'Role Selection'),
+              items: const [
+                DropdownMenuItem(value: MemberRole.coLead, child: Text('Co-Lead')),
+                DropdownMenuItem(value: MemberRole.member, child: Text('Member')),
+              ],
+              onChanged: (v) {
+                if (v != null) role = v;
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              await ref.read(teamRepositoryProvider).addMember(
+                    teamId: teamId,
+                    name: nameCtrl.text.trim(),
+                    role: role,
+                    actorId: currentMember?.id ?? 'creator',
+                  );
+              refreshAll(ref);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Add Member'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddClientModal(BuildContext context, WidgetRef ref, Member? currentMember, String teamId) {
+    final companyCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final batchCtrl = TextEditingController();
+    bool isBatchMode = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text('Add B2B Client Profile'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Single Client'), icon: Icon(Icons.person_add_rounded)),
+                  ButtonSegment(value: true, label: Text('Batch Import'), icon: Icon(Icons.library_add_rounded)),
+                ],
+                selected: {isBatchMode},
+                onSelectionChanged: (val) {
+                  setStateDialog(() {
+                    isBatchMode = val.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              if (!isBatchMode) ...[
+                TextField(
+                  controller: companyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Client Company Name',
+                    hintText: 'e.g. Acme Corp',
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Main Contact Email',
+                    hintText: 'e.g. contact@acme.com',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+              ] else ...[
+                const Text(
+                  'Enter clients (one per line):\nFormat: Company Name, Contact Email',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: batchCtrl,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g.\nAcme Corp, contact@acme.com\nGlobex, info@globex.com',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final repo = ref.read(teamRepositoryProvider);
+                final actorId = currentMember?.id ?? 'creator';
+                
+                if (isBatchMode) {
+                  final lines = batchCtrl.text.split('\n');
+                  int count = 0;
+                  for (final line in lines) {
+                    final trimmed = line.trim();
+                    if (trimmed.isEmpty) continue;
+                    final parts = trimmed.split(',');
+                    final name = parts[0].trim();
+                    final email = parts.length > 1 ? parts[1].trim() : null;
+                    if (name.isNotEmpty) {
+                      await repo.addMember(
+                        teamId: teamId,
+                        name: name,
+                        role: MemberRole.client,
+                        actorId: actorId,
+                        email: email,
+                      );
+                      count++;
+                    }
+                  }
+                  if (context.mounted && count > 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Successfully imported $count B2B client profiles.')),
+                    );
+                  }
+                } else {
+                  if (companyCtrl.text.trim().isEmpty) return;
+                  await repo.addMember(
+                    teamId: teamId,
+                    name: companyCtrl.text.trim(),
+                    role: MemberRole.client,
+                    actorId: actorId,
+                    email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Successfully created B2B client profile.')),
+                    );
+                  }
+                }
+                
+                refreshAll(ref);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Text(isBatchMode ? 'Import All' : 'Add Client'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

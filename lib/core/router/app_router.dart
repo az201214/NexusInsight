@@ -6,7 +6,9 @@ import '../../features/activity/activity_screen.dart';
 import '../../features/auth/lock_screen.dart';
 import '../../features/auth/onboarding_screen.dart';
 import '../../features/auth/setup_screen.dart';
+import '../../features/auth/sign_up_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
+import '../../features/meetings/huddle_screen.dart';
 import '../../features/meetings/meeting_detail_screen.dart';
 import '../../features/meetings/meeting_form_screen.dart';
 import '../../features/meetings/meetings_screen.dart';
@@ -30,12 +32,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: _RouterRefresh(ref, refresh),
     redirect: (context, state) async {
+      final user = await ref.read(currentUserProvider.future);
       final hasTeam = await ref.read(hasTeamProvider.future);
       final path = state.matchedLocation;
 
-      if (!hasTeam) {
-        if (path == '/setup' || path == '/onboarding') return null;
+      final bool isAuthPath = path == '/signup' || path == '/onboarding';
+
+      if (user == null) {
+        if (isAuthPath) return null;
         return '/onboarding';
+      }
+
+      if (!hasTeam) {
+        if (path == '/setup') return null;
+        return '/setup';
       }
 
       final team = await ref.read(teamProvider.future);
@@ -45,8 +55,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (settings != null &&
           !settings.onboardingDone &&
-          path != '/setup' &&
-          path != '/onboarding') {
+          path != '/setup') {
         return '/setup';
       }
 
@@ -55,13 +64,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (!unlocked) return '/lock';
       }
 
-      if (path == '/onboarding' || path == '/setup' || path == '/lock') {
+      if (path == '/onboarding' || path == '/signup' || path == '/setup' || path == '/lock') {
         return '/dashboard';
       }
       return null;
     },
     routes: [
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: '/signup', builder: (_, __) => const SignUpScreen()),
       GoRoute(path: '/setup', builder: (_, __) => const SetupScreen()),
       GoRoute(path: '/lock', builder: (_, __) => const LockScreen()),
       ShellRoute(
@@ -95,6 +105,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/meetings/:id/edit',
             builder: (_, s) =>
                 MeetingFormScreen(meetingId: s.pathParameters['id']),
+          ),
+          GoRoute(
+            path: '/meetings/:id/huddle',
+            builder: (_, s) => HuddleScreen(meetingId: s.pathParameters['id']!),
           ),
           GoRoute(path: '/team', builder: (_, __) => const MembersScreen()),
           GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
