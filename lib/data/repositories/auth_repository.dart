@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:crypto/crypto.dart';
 import '../database/app_database.dart';
 
 class SessionUser {
@@ -41,6 +42,10 @@ class AuthRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  String _hashPassword(String password) {
+    return sha256.convert(utf8.encode(password)).toString();
   }
 
   Future<SessionUser?> getCurrentUser() async {
@@ -90,6 +95,10 @@ class AuthRepository {
     // Local fallback sign up
     final userId = UniqueKey().toString();
     final user = SessionUser(id: userId, email: email, name: name);
+    final hashedPassword = _hashPassword(password);
+
+    await _storage.write(key: 'user_profile_$email', value: jsonEncode(user.toMap()));
+    await _storage.write(key: 'user_pwd_$email', value: hashedPassword);
     await _storage.write(key: 'user_session', value: jsonEncode(user.toMap()));
     return user;
   }
@@ -114,14 +123,24 @@ class AuthRepository {
     }
 
     // Local fallback sign in
-    final sessionData = await _storage.read(key: 'user_session');
-    if (sessionData != null) {
-      final user = SessionUser.fromMap(jsonDecode(sessionData) as Map<String, dynamic>);
-      if (user.email == email) {
-        return user;
-      }
+    final storedHash = await _storage.read(key: 'user_pwd_$email');
+    if (storedHash == null) {
+      throw Exception('User not found');
     }
-    throw Exception('Invalid local credentials or user not found');
+    
+    final inputHash = _hashPassword(password);
+    if (storedHash != inputHash) {
+      throw Exception('Incorrect password');
+    }
+    
+    final profileData = await _storage.read(key: 'user_profile_$email');
+    if (profileData == null) {
+      throw Exception('User profile not found');
+    }
+    
+    final user = SessionUser.fromMap(jsonDecode(profileData) as Map<String, dynamic>);
+    await _storage.write(key: 'user_session', value: jsonEncode(user.toMap()));
+    return user;
   }
 
   Future<void> signOut() async {

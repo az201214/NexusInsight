@@ -2,7 +2,7 @@ class AppConstants {
   static const appName = 'Krmaazha Team Hub';
   static const backupExtension = 'krmaazha';
   static const dbName = 'krmaazha_hub.db';
-  static const dbVersion = 2;
+  static const dbVersion = 3;
   static const desktopBreakpoint = 600.0;
   static const defaultMeetingReminderMinutes = 15;
 }

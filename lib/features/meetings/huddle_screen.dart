@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../shared/widgets/premium_widgets.dart';
+import '../../data/models/meeting.dart';
+import '../../core/providers/app_providers.dart';
 
 class HuddleScreen extends ConsumerStatefulWidget {
   const HuddleScreen({super.key, required this.meetingId});
@@ -46,11 +49,37 @@ class _HuddleScreenState extends ConsumerState<HuddleScreen> with SingleTickerPr
     (name: 'You', role: 'Client Partner', color: Colors.teal, speaking: false),
   ];
 
-  final _meetingUrlController = TextEditingController(text: 'https://meet.google.com/krm-azha-hub');
+  final _meetingUrlController = TextEditingController();
+  Meeting? _meeting;
+  bool _loadingMeeting = true;
 
   @override
   void initState() {
     super.initState();
+    _loadMeeting();
+  }
+
+  Future<void> _loadMeeting() async {
+    if (widget.meetingId != 'huddle' && widget.meetingId != 'active-huddle') {
+      final meeting = await ref.read(meetingRepositoryProvider).getMeeting(widget.meetingId);
+      if (meeting != null) {
+        setState(() {
+          _meeting = meeting;
+          _meetingUrlController.text = meeting.location ?? '';
+          _loadingMeeting = false;
+        });
+        return;
+      }
+    }
+    // Fallback/Demo: generate a dynamic/random Meet link
+    final randomPart = const Uuid().v4().substring(0, 10);
+    final p1 = randomPart.substring(0, 3);
+    final p2 = randomPart.substring(3, 7);
+    final p3 = randomPart.substring(7, 10);
+    setState(() {
+      _meetingUrlController.text = 'https://meet.google.com/$p1-$p2-$p3';
+      _loadingMeeting = false;
+    });
   }
 
   @override
@@ -127,7 +156,7 @@ class _HuddleScreenState extends ConsumerState<HuddleScreen> with SingleTickerPr
               ),
             ),
             const SizedBox(width: 8),
-            const Text('Huddle: Sprint Sync & Review'),
+            const Text('Huddle: Sprint Sync & Review (Simulator & AI Preview)'),
           ],
         ),
         actions: [
@@ -144,34 +173,61 @@ class _HuddleScreenState extends ConsumerState<HuddleScreen> with SingleTickerPr
       ),
       body: Stack(
         children: [
-          Row(
+          Column(
             children: [
-              // Main content area: Video grid or Whiteboard
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: _whiteboardOpen
-                            ? _buildWhiteboard(theme, isDark)
-                            : _screenSharing
-                                ? _buildScreenShareLayout(theme, isDark)
-                                : _buildVideoGrid(theme, isDark),
+              Container(
+                color: theme.colorScheme.primaryContainer,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: theme.colorScheme.onPrimaryContainer, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Huddle Simulator: This is an interactive preview demonstrating the real-time AI assistant, shared whiteboard, and workspace synchronization capabilities.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildControlBar(theme, isDark),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+              Expanded(
+                child: Row(
+                  children: [
+                    // Main content area: Video grid or Whiteboard
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: _loadingMeeting
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : _whiteboardOpen
+                                      ? _buildWhiteboard(theme, isDark)
+                                      : _screenSharing
+                                          ? _buildScreenShareLayout(theme, isDark)
+                                          : _buildVideoGrid(theme, isDark),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildControlBar(theme, isDark),
+                          ],
+                        ),
+                      ),
+                    ),
 
-              // Chat Sidebar with custom spring curve transition
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: const Cubic(0.175, 0.885, 0.32, 1.275), // Custom spring curve
-                width: _chatOpen ? 320.0 : 0.0,
-                child: _chatOpen ? _buildChatSidebar(theme, isDark) : const SizedBox.shrink(),
+                    // Chat Sidebar with custom spring curve transition
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 600),
+                      curve: const Cubic(0.175, 0.885, 0.32, 1.275), // Custom spring curve
+                      width: _chatOpen ? 320.0 : 0.0,
+                      child: _chatOpen ? _buildChatSidebar(theme, isDark) : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

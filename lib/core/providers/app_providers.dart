@@ -9,6 +9,9 @@ import '../../data/models/member.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/team_repository.dart';
 import '../lan/lan_sync_service.dart';
+import '../../data/models/shared_file.dart';
+import '../../data/models/meeting.dart';
+import '../../data/repositories/shared_file_repository.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase.instance);
 
@@ -30,6 +33,22 @@ final taskRepositoryProvider = Provider<TaskRepository>((ref) {
 
 final meetingRepositoryProvider = Provider<MeetingRepository>((ref) {
   return MeetingRepository(ref.watch(databaseProvider), ref.watch(teamRepositoryProvider));
+});
+
+final sharedFileRepositoryProvider = Provider<SharedFileRepository>((ref) {
+  return SharedFileRepository(ref.watch(databaseProvider));
+});
+
+final clientMeetingsProvider = FutureProvider<List<Meeting>>((ref) async {
+  final team = await ref.watch(teamProvider.future);
+  if (team == null) return [];
+  return ref.watch(meetingRepositoryProvider).getMeetings(team.id);
+});
+
+final clientFilesProvider = FutureProvider<List<SharedFile>>((ref) async {
+  final team = await ref.watch(teamProvider.future);
+  if (team == null) return [];
+  return ref.watch(sharedFileRepositoryProvider).getFiles(team.id);
 });
 
 final backupRepositoryProvider = Provider<BackupRepository>((ref) {

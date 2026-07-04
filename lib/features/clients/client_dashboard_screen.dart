@@ -2,43 +2,64 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../core/providers/app_providers.dart';
+import '../../data/models/meeting.dart';
+import '../../data/models/shared_file.dart';
 import '../shared/widgets/premium_widgets.dart';
+import '../shared/widgets/empty_state.dart';
 
 class ClientDashboardScreen extends ConsumerWidget {
   const ClientDashboardScreen({super.key});
+
+  Future<void> _pickAndUploadFile(WidgetRef ref, BuildContext context) async {
+    final team = await ref.read(teamProvider.future);
+    final member = await ref.read(currentMemberProvider.future);
+    if (team == null || member == null) return;
+
+    final result = await FilePicker.platform.pickFiles();
+    if (result == null || result.files.isEmpty) return;
+
+    final pickedFile = result.files.first;
+    final extension = pickedFile.extension ?? 'unknown';
+    
+    // Formatting size
+    final double sizeInMb = pickedFile.size / (1024 * 1024);
+    final sizeStr = sizeInMb < 0.1 
+        ? '${(pickedFile.size / 1024).toStringAsFixed(1)} KB' 
+        : '${sizeInMb.toStringAsFixed(1)} MB';
+
+    final id = const Uuid().v4();
+    final sharedFile = SharedFile(
+      id: id,
+      teamId: team.id,
+      fileName: pickedFile.name,
+      filePath: pickedFile.path ?? pickedFile.name,
+      fileSize: sizeStr,
+      fileType: extension,
+      uploadedAt: DateTime.now(),
+      uploadedBy: member.id,
+    );
+
+    await ref.read(sharedFileRepositoryProvider).addFile(sharedFile);
+    ref.invalidate(clientFilesProvider);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully uploaded ${pickedFile.name}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Hardcoded high-fidelity mock data representing B2B client details
-    final mockConsultations = [
-      (
-        title: 'Project Kickoff & Architecture Review',
-        date: 'June 28, 2026',
-        duration: 45,
-        summary: 'Discussed cloud scaling, database choices, and established the development timeline for Phase 1.'
-      ),
-      (
-        title: 'Sprint 2 Demo & Feedback Session',
-        date: 'June 15, 2026',
-        duration: 60,
-        summary: 'Demoed authorization gateways, localized storage layers, and reviewed the onboarding flow UI revisions.'
-      ),
-      (
-        title: 'Initial Discovery & Budgeting Call',
-        date: 'May 30, 2026',
-        duration: 30,
-        summary: 'Gathered core requirements, identified target user segments, and locked in the estimation budget.'
-      ),
-    ];
-
-    final mockFiles = [
-      (fileName: 'Project_Scope_v2.pdf', fileSize: '2.4 MB', type: 'pdf', uploaded: 'Yesterday'),
-      (fileName: 'Architecture_Wireframes_Export.zip', fileSize: '18.9 MB', type: 'zip', uploaded: '3 days ago'),
-      (fileName: 'Brand_Identity_Assets.png', fileSize: '4.1 MB', type: 'png', uploaded: 'June 12, 2026'),
-    ];
+    final meetingsAsync = ref.watch(clientMeetingsProvider);
+    final filesAsync = ref.watch(clientFilesProvider);
 
     return Scaffold(
       body: CustomScrollView(
@@ -138,7 +159,7 @@ class ClientDashboardScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Tap to join your private video consulting room with the core team.',
+                                    'Tap to join your private video consulting room (Demo & AI Preview).',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
@@ -150,7 +171,7 @@ class ClientDashboardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 20),
                         PremiumButton(
-                          label: 'Join Video Huddle',
+                          label: 'Join Huddle (Demo & AI Preview)',
                           icon: Icons.forum_rounded,
                           onPressed: () {
                             context.push('/meetings/active-huddle/huddle');
@@ -173,26 +194,48 @@ class ClientDashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () {},
+                      onPressed: () => context.push('/meetings'),
                       icon: const Icon(Icons.arrow_right_alt_rounded),
                       label: const Text('View All'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: mockConsultations.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, i) {
-                    final item = mockConsultations[i];
-                    return PremiumConsultationCard(
-                      title: item.title,
-                      date: item.date,
-                      durationMinutes: item.duration,
-                      summary: item.summary,
+                meetingsAsync.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, st) => Center(
+                    child: Text('Error loading consultations: $e'),
+                  ),
+                  data: (meetings) {
+                    if (meetings.isEmpty) {
+                      return const EmptyState(
+                        icon: Icons.forum_rounded,
+                        title: 'No consultations yet',
+                        subtitle: 'Scheduled consultations and review meetings will appear here.',
+                      );
+                    }
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      itemCount: meetings.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, i) {
+                        final m = meetings[i];
+                        final dateStr = DateFormat.yMMMMd().format(m.startAt);
+                        final duration = m.endAt.difference(m.startAt).inMinutes;
+                        return PremiumConsultationCard(
+                          title: m.title,
+                          date: dateStr,
+                          durationMinutes: duration,
+                          summary: m.notes ?? m.agenda ?? 'No summary available.',
+                        );
+                      },
                     );
                   },
                 ),
@@ -209,29 +252,49 @@ class ClientDashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () {},
+                      onPressed: () => _pickAndUploadFile(ref, context),
                       icon: const Icon(Icons.upload_file_rounded),
                       label: const Text('Upload'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: mockFiles.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    final file = mockFiles[i];
-                    return PremiumFileCard(
-                      fileName: file.fileName,
-                      fileSize: file.fileSize,
-                      fileType: file.type,
-                      uploadedAt: file.uploaded,
-                      onDownload: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Downloading ${file.fileName}...')),
+                filesAsync.when(
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, st) => Center(
+                    child: Text('Error loading documents: $e'),
+                  ),
+                  data: (files) {
+                    if (files.isEmpty) {
+                      return const EmptyState(
+                        icon: Icons.insert_drive_file_outlined,
+                        title: 'No shared documents yet',
+                        subtitle: 'Upload scoping docs, wireframes, or assets to share them with the team.',
+                      );
+                    }
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      itemCount: files.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        final file = files[i];
+                        return PremiumFileCard(
+                          fileName: file.fileName,
+                          fileSize: file.fileSize,
+                          fileType: file.fileType,
+                          uploadedAt: DateFormat.yMMMMd().format(file.uploadedAt),
+                          onDownload: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Downloading ${file.fileName}...')),
+                            );
+                          },
                         );
                       },
                     );

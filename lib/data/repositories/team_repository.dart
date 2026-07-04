@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
@@ -132,7 +133,7 @@ class TeamRepository {
     final id = _uuid.v4();
     final now = DateTime.now();
     final colors = [0xFF0D7377, 0xFFFF6B6B, 0xFF2C3E7A, 0xFFE9C46A, 0xFF9B5DE5];
-    final color = colors[now.millisecond % colors.length];
+    final color = colors[Random().nextInt(colors.length)];
 
     await db.insert('members', {
       'id': id,
